@@ -1,0 +1,18 @@
+﻿  main_pbr_IBL.cpp
+e:\course\大三上\电脑图形学\cgprograming\myprogram\myprogram\model.h(91): warning C4154: 删除数组表达式；转换到提供的指针
+e:\course\大三上\电脑图形学\cgprograming\myprogram\myprogram\model.h(213): warning C4018: “<”: 有符号/无符号不匹配
+e:\course\大三上\电脑图形学\cgprograming\myprogram\myprogram\model.h(258): warning C4018: “<”: 有符号/无符号不匹配
+e:\course\大三上\电脑图形学\cgprograming\myprogram\myprogram\model.h(296): warning C4018: “<”: 有符号/无符号不匹配
+e:\course\大三上\电脑图形学\cgprograming\myprogram\myprogram\model.h(319): warning C4018: “<”: 有符号/无符号不匹配
+e:\course\大三上\电脑图形学\cgprograming\myprogram\myprogram\glwindow.h(45): warning C4244: “初始化”: 从“double”转换到“float”，可能丢失数据
+e:\course\大三上\电脑图形学\cgprograming\myprogram\myprogram\glwindow.h(46): warning C4244: “初始化”: 从“double”转换到“float”，可能丢失数据
+e:\course\大三上\电脑图形学\cgprograming\myprogram\myprogram\primitive\sphere.h(28): warning C4305: “初始化”: 从“double”到“float”截断
+e:\course\大三上\电脑图形学\cgprograming\myprogram\myprogram\primitive\sphere.h(69): warning C4018: “<”: 有符号/无符号不匹配
+e:\course\大三上\电脑图形学\cgprograming\myprogram\myprogram\primitive\sphere.h(93): warning C4244: “参数”: 从“float”转换到“GLsizei”，可能丢失数据
+e:\course\大三上\电脑图形学\cgprograming\myprogram\myprogram\primitive\sphere.h(95): warning C4244: “参数”: 从“float”转换到“GLsizei”，可能丢失数据
+e:\course\大三上\电脑图形学\cgprograming\myprogram\myprogram\primitive\sphere.h(97): warning C4244: “参数”: 从“float”转换到“GLsizei”，可能丢失数据
+e:\course\大三上\电脑图形学\cgprograming\myprogram\myprogram\main_pbr_ibl.cpp(339): warning C4244: “=”: 从“int”转换到“float”，可能丢失数据
+e:\course\大三上\电脑图形学\cgprograming\myprogram\myprogram\main_pbr_ibl.cpp(340): warning C4244: “=”: 从“int”转换到“float”，可能丢失数据
+e:\course\大三上\电脑图形学\cgprograming\myprogram\myprogram\main_pbr_ibl.cpp(348): warning C4244: “=”: 从“int”转换到“float”，可能丢失数据
+e:\course\大三上\电脑图形学\cgprograming\myprogram\myprogram\main_pbr_ibl.cpp(349): warning C4244: “=”: 从“int”转换到“float”，可能丢失数据
+  MyProgram.vcxproj -> E:\Course\大三上\电脑图形学\CGPrograming\MyProgram\Debug\MyProgram.exe
