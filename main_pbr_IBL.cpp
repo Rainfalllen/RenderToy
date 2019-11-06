@@ -36,6 +36,7 @@ bool firstMouse = true;
 Shader* pbr_shader;
 Shader* equirectangularToCubemapShader;
 Shader* backgroundShader;
+Shader* irradianceShader;
 
 GLWindow* glWindow;
 
@@ -43,6 +44,7 @@ unsigned int captureFBO;
 unsigned int captureRBO;
 unsigned int hdrTexture;
 unsigned int envCubemap;
+unsigned int irradianceMap;
 
 
 // lights
@@ -79,6 +81,10 @@ void display()
 	pbr_shader->SetUniformMat4("projection", projection);
 	pbr_shader->SetUniformMat4("view", view);
 	pbr_shader->SetUniformVec3("camPos", camera.GetPosition());
+
+	// bind pre-computed IBL data
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, irradianceMap);
 
 	backgroundShader->SetUniformMat4("projection", projection);
 
@@ -128,16 +134,10 @@ void display()
 	backgroundShader->SetUniformMat4("projection", projection);
 	backgroundShader->SetUniformMat4("view", view);
 	glActiveTexture(GL_TEXTURE0);
+	//glBindTexture(GL_TEXTURE_CUBE_MAP, irradianceMap);// 画一下环境贴图
 	glBindTexture(GL_TEXTURE_CUBE_MAP, envCubemap);
 	Cube::Draw();
 
-
-	//equirectangularToCubemapShader->use();
-	//equirectangularToCubemapShader->SetUniformMat4("projection", projection);
-	//equirectangularToCubemapShader->SetUniformMat4("view", view);
-	//glActiveTexture(GL_TEXTURE0);
-	//glBindTexture(GL_TEXTURE_2D, hdrTexture);
-	//Cube::Draw();
 
 	glutPostRedisplay();
 	glutSwapBuffers();
@@ -160,11 +160,13 @@ int main(int argc, char* argv[])
 	// -----------------------------------------------------------
 	pbr_shader = new Shader("shader_file/PBR/pbr.vs", "shader_file/PBR/pbr.fs");
 	pbr_shader->use();
-	pbr_shader->SetUniformVec3("albedo", glm::vec3(0.5f, 0.0f, 0.0f));
+	pbr_shader->SetUniformVec3("albedo", glm::vec3(0.5f, 0.5f, 0.5f));
 	pbr_shader->SetUniform1f("ao", 1.0f);
+	pbr_shader->SetUniform1i("irradianceMap", 0);
 
-	equirectangularToCubemapShader = new Shader("shader_file/PBR/equirectangular_to_cubemap.vs", "shader_file/PBR/equirectangular_to_cubemap.fs");
+	equirectangularToCubemapShader = new Shader("shader_file/PBR/cubemap.vs", "shader_file/PBR/equirectangular_to_cubemap.fs");
 	backgroundShader = new Shader("shader_file/PBR/background.vs", "shader_file/PBR/background.fs");
+	irradianceShader = new Shader("shader_file/PBR/cubemap.vs", "shader_file/PBR/irradiance_convolution.fs");
 
 	backgroundShader->use();
 	backgroundShader->SetUniform1i("environmentMap", 0);
@@ -189,7 +191,7 @@ int main(int argc, char* argv[])
 	// ---------------------------------
 	stbi_set_flip_vertically_on_load(true);
 	int width, height, nrComponents;
-	float *data = stbi_loadf("Resource/Image/hdr/newport_loft.hdr", &width, &height, &nrComponents, 0);
+	float *data = stbi_loadf("Resource/Image/hdr/Arches_E_PineTree_3k.hdr", &width, &height, &nrComponents, 0);
 	if (data)
 	{
 		glGenTextures(1, &hdrTexture);
@@ -258,12 +260,50 @@ int main(int argc, char* argv[])
 	}
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	
+	// pbr: create an irradiance cubemap, and re-scale capture FBO to irradiance scale.
+	// --------------------------------------------------------------------------------
 	
+	glGenTextures(1, &irradianceMap);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, irradianceMap);
+	for (unsigned int i = 0; i < 6; ++i)
+	{
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, 32, 32, 0, GL_RGB, GL_FLOAT, nullptr);
+	}
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
+	glBindRenderbuffer(GL_RENDERBUFFER, captureRBO);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, 32, 32);
+
+	// pbr: solve diffuse integral by convolution to create an irradiance (cube)map.
+	// -----------------------------------------------------------------------------
+	irradianceShader->use();
+	irradianceShader->SetUniform1i("environmentMap", 0);
+	irradianceShader->SetUniformMat4("projection", captureProjection);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, envCubemap);
+
+	glViewport(0, 0, 32, 32); // don't forget to configure the viewport to the capture dimensions.
+	glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
+	for (unsigned int i = 0; i < 6; ++i)
+	{
+		irradianceShader->SetUniformMat4("view", captureViews[i]);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, irradianceMap, 0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		Cube::Draw();
+	}
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	
+	// then before rendering, configure the viewport to the original framebuffer's screen dimensions
 	glViewport(0, 0, WIDTH, HEIGHT);
 
 	// -----------------------------------------------------------
-	glutDisplayFunc(display);
+	glWindow->SetRenderScene(display);
 	glutReshapeFunc(reshape);
 	glutKeyboardFunc(keyboard);
 	glutMouseFunc(mousebutton);
@@ -279,6 +319,13 @@ int main(int argc, char* argv[])
 void reshape(int width, int height)
 {
 	//glViewport(0, 0, width, height);
+	float temp = (float)width / (float)height;
+	float scale = (float)WIDTH / (float)HEIGHT;
+	
+	if (temp > scale)
+		glViewport(0, 0, width, width * 1.0 / scale);
+	else
+		glViewport(0, 0, height * scale, height);
 }
 
 void keyboard(unsigned char key, int xpos, int ypos)

@@ -36,6 +36,11 @@ public:
 		glutDisplayFunc(callback);
 	}
 
+	void Reshape(void(*callback)(int,int))
+	{
+		glutReshapeFunc(callback);
+	}
+
 private:
 	GLint window;
 	GLuint WIDTH;
