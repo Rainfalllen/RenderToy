@@ -25,7 +25,7 @@ public:
 	const char* vertexSource;
 	const char* fragmentSource;
 
-	unsigned int ID;		//Program ID
+	unsigned int ID;
 
 	Shader(const char * vertexPath, const char * fragmentPath, const char * geometryPath = nullptr)
 	{

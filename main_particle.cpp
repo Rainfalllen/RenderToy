@@ -72,7 +72,7 @@ int main(int argc, char* argv[])
 	glWindow = new GLWindow(WIDTH, HEIGHT);
 	// -----------------------------------------------------------
 	w_shader = new Shader("ParticleSystem/waterfall.vs", "ParticleSystem/waterfall.fs");
-	waterfall = new Waterfall();
+	waterfall = new Waterfall(10000,100);
 	// -----------------------------------------------------------
 	glutDisplayFunc(display);
 	glutReshapeFunc(reshape);

@@ -15,9 +15,10 @@ class Waterfall :public ParticleSystem<WaterfallParticle>
 {
 public:
 	Waterfall();
+	Waterfall(int num,int life) : ParticleSystem(num, life){}
 	virtual void Update(GLfloat deltaTime);
 	virtual void Render();
-	void TestRender();
+	//void TestRender();
 private:
 	virtual void RenderParticle(const WaterfallParticle& p);
 };
@@ -27,6 +28,7 @@ private:
 
 #include "../Primitive/Cube.h"
 #include "../Primitive/Sphere.h"
+#include "../Primitive/Quad.h"
 #include <random>
 
 Shader* w_shader;
@@ -55,33 +57,66 @@ void Waterfall::Update(GLfloat deltaTime)
 	// new particles
 	WaterfallParticle particle;
 	int newParticleNumber = randInt(2, 4);
+	//for (int i = 0; i < newParticleNumber; ++i) {
+	//	particle.position = glm::vec3(-2.0f, 1.8f, 0.0f);
+	//	particle.speed = glm::vec3(randFloat(3.0f, 5.0f), randFloat(-1.0f, 1.0f), randFloat(-1.0f, 1.0f));
+	//	particle.lifespan = mParticleLifespan;
+	//	particle.bounced = false;
+	//	CreateParticle(particle);
+	//}
+	//
+	//// existing particles
+	//for (int i = 0; i < mParticleNumber; ++i) 
+	//{
+	//	if (mParticlePool[i].link.mark != 1) 
+	//	{
+	//		WaterfallParticle* p = &(mParticlePool[i].particle);//particle表示当前循环要更新的粒子
+	//		p->position += p->speed * deltaTime;
+	//		if (p->position.x > -2.0f) {
+	//			p->speed.y -= gravity * deltaTime;
+	//		}
+	//		if (p->position.y < 0 && !p->bounced) {
+	//			p->bounced = true;
+	//			p->speed.y *= -randFloat(0.4f, 0.7f);
+	//			p->speed.x *= randFloat(0.6f, 0.9f);
+	//			p->speed.z *= randFloat(0.6f, 0.9f);
+	//		}
+	//		if (p->lifespan <= 0 || p->position.y < -10.0f) {
+	//			DestroyParticle(i);
+	//		}
+	//		p->lifespan--;
+	//	}
+	//}
 	for (int i = 0; i < newParticleNumber; ++i) {
-		particle.position = glm::vec3(-2.0f, 1.8f, 0.0f);
-		particle.speed = glm::vec3(randFloat(3.0f, 5.0f), randFloat(-1.0f, 1.0f), randFloat(-1.0f, 1.0f));
+		particle.position = glm::vec3(0.0f, -2.0f, 0.0f);
+		particle.speed = glm::vec3(randFloat(-3.0f, 3.0f), randFloat(5.0f, 7.0f), randFloat(-3.0f, 3.0f));
 		particle.lifespan = mParticleLifespan;
 		particle.bounced = false;
 		CreateParticle(particle);
 	}
 
 	// existing particles
-	for (int i = 0; i < mParticleNumber; ++i) 
+	for (int i = 0; i < mParticleNumber; ++i)
 	{
-		if (mParticlePool[i].link.mark != 1) 
+		if (mParticlePool[i].link.mark != 1)
 		{
 			WaterfallParticle* p = &(mParticlePool[i].particle);//particle表示当前循环要更新的粒子
 			p->position += p->speed * deltaTime;
-			if (p->position.x > -2.0f) {
-				p->speed.y -= gravity * deltaTime;
-			}
-			if (p->position.y < 0 && !p->bounced) {
-				p->bounced = true;
-				p->speed.y *= -randFloat(0.4f, 0.7f);
-				p->speed.x *= randFloat(0.6f, 0.9f);
-				p->speed.z *= randFloat(0.6f, 0.9f);
-			}
-			if (p->lifespan <= 0 || p->position.y < -10.0f) {
+			//if (p->position.x > -2.0f) {
+			//	p->speed.y -= gravity * deltaTime;
+			//}
+			//if (p->position.y < 0 && !p->bounced) {
+			//	p->bounced = true;
+			//	p->speed.y *= -randFloat(0.4f, 0.7f);
+			//	p->speed.x *= randFloat(0.6f, 0.9f);
+			//	p->speed.z *= randFloat(0.6f, 0.9f);
+			//}
+			//if (p->lifespan <= 0 || p->position.y < -10.0f) {
+			//	DestroyParticle(i);
+			//}
+			p->speed.y -= gravity * deltaTime;
+			if (p->lifespan <= 0 || p->position.y < -10.0f)
 				DestroyParticle(i);
-			}
 			p->lifespan--;
 		}
 	}
@@ -120,8 +155,9 @@ void Waterfall::RenderParticle(const WaterfallParticle & particle)
 
 	w_shader->use();
 	w_shader->SetUniformMat4("model", model);
-	w_shader->SetUniformVec3("color", glm::vec3(randFloat(0.1f, 0.3f), randFloat(0.2f, 0.4f), randFloat(0.8f, 1.0f)));
-
+	//w_shader->SetUniformVec3("color", glm::vec3(randFloat(0.1f, 0.3f), randFloat(0.2f, 0.4f), randFloat(0.8f, 1.0f)));
+	w_shader->SetUniformVec3("color", glm::vec3(randFloat(0.8f, 1.0f), randFloat(0.2f, 0.4f), randFloat(0.1f, 0.3f)));
 	//Cube::Draw();
-	Sphere::Draw();
+	//Sphere::Draw();
+	Quad::Draw();
 }

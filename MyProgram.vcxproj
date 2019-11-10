@@ -120,6 +120,7 @@
   <ItemGroup>
     <ClInclude Include="Camera.h" />
     <ClInclude Include="DeferredShading.h" />
+    <ClInclude Include="Environment.h" />
     <ClInclude Include="GLWindow.h" />
     <ClInclude Include="Light\Light.h" />
     <ClInclude Include="Light\DirectionalLight.h" />

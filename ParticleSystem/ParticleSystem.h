@@ -19,6 +19,8 @@ public:
 	virtual void Render();
 	virtual void Update(GLfloat deltaTime) = 0;
 
+	bool inUse() const { return mParticleLifespan > 0; }
+
 protected:
 	virtual void RenderParticle(const ParticleType& p) = 0;
 
@@ -26,14 +28,14 @@ protected:
 	void DestroyParticle(GLint index);
 
 protected:
-	//池分配器的分配单元，可以用来保存粒子信息或freelist信息
+	// 采用对象池模式
 	union PoolAllocUnit 
 	{
 		ParticleType particle;
 		struct Link 
 		{
 			GLint mark;//判断是否为link的标志，设为1
-			GLint next;//使用“栈”的数据结构存储freelist，所以使用单向链表即可
+			GLint next;//freelist，使用单向链表
 		}link;
 		PoolAllocUnit() {}
 	};
@@ -51,9 +53,9 @@ template<typename ParticleType>
 inline ParticleSystem<ParticleType>::ParticleSystem(GLuint particleNumber, GLuint particleLifespan)
 	:mParticleNumber(particleNumber), mParticleLifespan(particleLifespan)
 {
-	//dynamic memory allocation according to the number of particles
+	// dynamic memory allocation according to the number of particles
 	mParticlePool = new PoolAllocUnit[mParticleNumber];
-	//初始化freelist
+	// initiate freelist
 	memset(mParticlePool, 0, sizeof(PoolAllocUnit) * mParticleNumber);
 	mFreeIndex = 0;
 	for (GLint i = 0; i < mParticleNumber; ++i)
@@ -73,7 +75,6 @@ inline ParticleSystem<ParticleType>::~ParticleSystem()
 template<typename ParticleType>
 void ParticleSystem<ParticleType>::Render()
 {
-	//渲染每一个“存在”的粒子
 	for (GLint i = 0; i < mParticleNumber; ++i) {
 		if (mParticlePool[i].link.mark != 1) {
 			RenderParticle(mParticlePool[i].particle);
@@ -93,9 +94,9 @@ void ParticleSystem<ParticleType>::CreateParticle(const ParticleType& particle)
 template<typename ParticleType>
 void ParticleSystem<ParticleType>::DestroyParticle(GLint index)
 {
-	if (index < 0 || index >= mParticleNumber)return;//索引不合法
-	if (mParticlePool[index].link.mark == 1)return;//当前索引在freelist中
-	mParticlePool[index].link.mark = 1;//当前索引添加到freelist
+	if (index < 0 || index >= mParticleNumber)	return;
+	if (mParticlePool[index].link.mark == 1)	return; //index已在freelist
+	mParticlePool[index].link.mark = 1;//将index添加到freelist
 	mParticlePool[index].link.next = mFreeIndex;
 	mFreeIndex = index;
 }

@@ -31,6 +31,7 @@ public:
 	Texture(uint ID, ENUM_TYPE type);
 	Texture(ENUM_TYPE type);
 	Texture(uint width, uint height, const float * data, uint dataType, uint srcFormat, uint internalFormat, MAG_FILTER magFilter = MAG_FILTER::NEAREST);
+	Texture(uint width, uint height, const float * data, uint dataType, uint srcFormat, uint internalFormat, MAG_FILTER magFilter, int wrap);
 	Texture(const std::vector<std::string> & skybox);
 	//Texture(const std::vector<std::string> & skyboxImgs);
 	Texture(const std::string & path, bool flip = false, bool gammaCorrection = false);
@@ -86,6 +87,19 @@ Texture::Texture(uint width, uint height, const float * data, uint dataType,
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, glMagFilter);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	type = ENUM_TYPE_2D;
+}
+Texture::Texture(uint width, uint height, const float * data, uint dataType, uint srcFormat, uint internalFormat, MAG_FILTER magFilter, int wrap)
+{
+	glGenTextures(1, &ID);
+	glBindTexture(GL_TEXTURE_2D, ID);
+	glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, srcFormat, dataType, data);
+	//glGenerateMipmap(GL_TEXTURE_2D);
+	uint glMagFilter = magFilter == MAG_FILTER::NEAREST ? GL_NEAREST : GL_LINEAR;
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glMagFilter);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, glMagFilter);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
 	type = ENUM_TYPE_2D;
 }
 

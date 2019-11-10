@@ -18,6 +18,9 @@
 
 #include "Primitive/Sphere.h"
 #include "Primitive/Cube.h"
+#include "Primitive/Quad.h"
+
+#include "Environment.h"
 
 using namespace std;
 
@@ -34,18 +37,22 @@ bool firstMouse = true;
 
 
 Shader* pbr_shader;
-Shader* equirectangularToCubemapShader;
-Shader* backgroundShader;
-Shader* irradianceShader;
+//Shader* equirectangularToCubemapShader;
+//Shader* backgroundShader;
+//Shader* irradianceShader;
+//Shader* brdfShader;
+//Shader* prefilterShader;
 
 GLWindow* glWindow;
+Environment* environment;
 
-unsigned int captureFBO;
-unsigned int captureRBO;
-unsigned int hdrTexture;
-unsigned int envCubemap;
-unsigned int irradianceMap;
-
+//unsigned int captureFBO;
+//unsigned int captureRBO;
+//unsigned int hdrTexture;
+//unsigned int envCubemap;
+//unsigned int irradianceMap;
+//unsigned int prefilterMap;
+//unsigned int brdfLUTTexture;
 
 // lights
 // -------------------------------------
@@ -62,10 +69,9 @@ glm::vec3 lightColors[] = {
 	glm::vec3(300.0f, 300.0f, 300.0f),
 	glm::vec3(300.0f, 300.0f, 300.0f)
 };
-int nrRows = 8;
-int nrColumns = 8;
+int nrRows = 7;
+int nrColumns = 7;
 float spacing = 2.5;
-
 
 
 float angle = 0;
@@ -83,17 +89,14 @@ void display()
 	pbr_shader->SetUniformVec3("camPos", camera.GetPosition());
 
 	// bind pre-computed IBL data
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, irradianceMap);
-
-	backgroundShader->SetUniformMat4("projection", projection);
+	environment->Use();
 
 	// render rows*column number of spheres with varying metallic/roughness values scaled by rows and columns respectively
 	glm::mat4 model = glm::mat4(1.0f);
-	for (int row = 0; row <= nrRows; ++row)
+	for (int row = 0; row < nrRows; ++row)
 	{
 		pbr_shader->SetUniform1f("metallic", (float)row / (float)nrRows);
-		for (int col = 0; col <= nrColumns; ++col)
+		for (int col = 0; col < nrColumns; ++col)
 		{
 			// we clamp the roughness to 0.025 - 1.0 as perfectly smooth surfaces (roughness of 0.0) tend to look a bit off
 			// on direct lighting.
@@ -128,17 +131,10 @@ void display()
 		Sphere::Draw();
 	}
 
-
 	// render skybox (render as last to prevent overdraw)
-	backgroundShader->use();
-	backgroundShader->SetUniformMat4("projection", projection);
-	backgroundShader->SetUniformMat4("view", view);
-	glActiveTexture(GL_TEXTURE0);
-	//glBindTexture(GL_TEXTURE_CUBE_MAP, irradianceMap);// 画一下环境贴图
-	glBindTexture(GL_TEXTURE_CUBE_MAP, envCubemap);
-	Cube::Draw();
+	environment->RenderSkybox(projection, view);
 
-
+	//--------------------------------------------------------------------------------------
 	glutPostRedisplay();
 	glutSwapBuffers();
 
@@ -156,151 +152,19 @@ void mousemovement(int xpos, int ypos);
 int main(int argc, char* argv[])
 {
 	glutInit(&argc, argv);
-	glWindow = new GLWindow(WIDTH, HEIGHT);
+	glWindow = new GLWindow(WIDTH, HEIGHT);	
 	// -----------------------------------------------------------
-	pbr_shader = new Shader("shader_file/PBR/pbr.vs", "shader_file/PBR/pbr.fs");
+
+	environment = new Environment(WIDTH, HEIGHT);
+
+	pbr_shader = new Shader("shader_file/PBR/pbr.vs", "shader_file/PBR/pbr_IBL.fs");
+
 	pbr_shader->use();
+	pbr_shader->SetUniform1i("irradianceMap", 0);
+	pbr_shader->SetUniform1i("prefilterMap", 1);
+	pbr_shader->SetUniform1i("brdfLUT", 2);
 	pbr_shader->SetUniformVec3("albedo", glm::vec3(0.5f, 0.5f, 0.5f));
 	pbr_shader->SetUniform1f("ao", 1.0f);
-	pbr_shader->SetUniform1i("irradianceMap", 0);
-
-	equirectangularToCubemapShader = new Shader("shader_file/PBR/cubemap.vs", "shader_file/PBR/equirectangular_to_cubemap.fs");
-	backgroundShader = new Shader("shader_file/PBR/background.vs", "shader_file/PBR/background.fs");
-	irradianceShader = new Shader("shader_file/PBR/cubemap.vs", "shader_file/PBR/irradiance_convolution.fs");
-
-	backgroundShader->use();
-	backgroundShader->SetUniform1i("environmentMap", 0);
-	
-	// configure global opengl state
-	// -----------------------------
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_LEQUAL); // set depth function to less than AND equal for skybox depth trick.
-	
-	// pbr: setup framebuffer
-	// ----------------------
-
-	glGenFramebuffers(1, &captureFBO);
-	glGenRenderbuffers(1, &captureRBO);
-	
-	glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
-	glBindRenderbuffer(GL_RENDERBUFFER, captureRBO);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, 512, 512);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, captureRBO);
-
-	// pbr: load the HDR environment map
-	// ---------------------------------
-	stbi_set_flip_vertically_on_load(true);
-	int width, height, nrComponents;
-	float *data = stbi_loadf("Resource/Image/hdr/Arches_E_PineTree_3k.hdr", &width, &height, &nrComponents, 0);
-	if (data)
-	{
-		glGenTextures(1, &hdrTexture);
-		glBindTexture(GL_TEXTURE_2D, hdrTexture);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_FLOAT, data); // note how we specify the texture's data value to be float
-
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-		stbi_image_free(data);
-	}
-	else
-	{
-		std::cout << "Failed to load HDR image." << std::endl;
-	}
-	
-
-
-	// pbr: setup cubemap to render to and attach to framebuffer
-	// ---------------------------------------------------------
-	
-	glGenTextures(1, &envCubemap);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, envCubemap);
-	for (unsigned int i = 0; i < 6; ++i)
-	{
-		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, 512, 512, 0, GL_RGB, GL_FLOAT, nullptr);
-	}
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	
-	// pbr: set up projection and view matrices for capturing data onto the 6 cubemap face directions
-	// ----------------------------------------------------------------------------------------------
-	glm::mat4 captureProjection = glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f);
-	glm::mat4 captureViews[] =
-	{
-		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),
-		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)),
-		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
-		glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
-	};
-	
-	// pbr: convert HDR equirectangular environment map to cubemap equivalent
-	// ----------------------------------------------------------------------
-	equirectangularToCubemapShader->use();
-	equirectangularToCubemapShader->SetUniform1i("equirectangularMap", 0);
-	equirectangularToCubemapShader->SetUniformMat4("projection", captureProjection);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, hdrTexture);
-	
-	glViewport(0, 0, 512, 512); // don't forget to configure the viewport to the capture dimensions.
-	glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
-	for (unsigned int i = 0; i < 6; ++i)
-	{
-		equirectangularToCubemapShader->SetUniformMat4("view", captureViews[i]);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, envCubemap, 0);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	
-		Cube::Draw();
-	}
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	
-	// pbr: create an irradiance cubemap, and re-scale capture FBO to irradiance scale.
-	// --------------------------------------------------------------------------------
-	
-	glGenTextures(1, &irradianceMap);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, irradianceMap);
-	for (unsigned int i = 0; i < 6; ++i)
-	{
-		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, 32, 32, 0, GL_RGB, GL_FLOAT, nullptr);
-	}
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
-	glBindRenderbuffer(GL_RENDERBUFFER, captureRBO);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, 32, 32);
-
-	// pbr: solve diffuse integral by convolution to create an irradiance (cube)map.
-	// -----------------------------------------------------------------------------
-	irradianceShader->use();
-	irradianceShader->SetUniform1i("environmentMap", 0);
-	irradianceShader->SetUniformMat4("projection", captureProjection);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, envCubemap);
-
-	glViewport(0, 0, 32, 32); // don't forget to configure the viewport to the capture dimensions.
-	glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
-	for (unsigned int i = 0; i < 6; ++i)
-	{
-		irradianceShader->SetUniformMat4("view", captureViews[i]);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, irradianceMap, 0);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		Cube::Draw();
-	}
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	
-	// then before rendering, configure the viewport to the original framebuffer's screen dimensions
-	glViewport(0, 0, WIDTH, HEIGHT);
 
 	// -----------------------------------------------------------
 	glWindow->SetRenderScene(display);
@@ -312,6 +176,9 @@ int main(int argc, char* argv[])
 	glutMainLoop();
 
 	delete glWindow;
+	delete environment;
+	delete pbr_shader;
+
 	return 0;
 }
 
