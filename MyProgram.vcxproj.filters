@@ -71,7 +71,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main_pbr_IBL.cpp">
+    <ClCompile Include="main_shadow_mapping.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

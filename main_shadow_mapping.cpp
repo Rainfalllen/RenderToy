@@ -132,7 +132,7 @@ void display()
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	glm::vec3 lightPos = glm::vec3(1.5f, 3, -3);
+	glm::vec3 lightPos = glm::vec3(2.0f, 3.5f, 2.0f);
 
 	// 第一次渲染，在光的空间坐标系下
 	shadow->Begin(lightPos);
@@ -194,31 +194,25 @@ void keyboard(unsigned char key, int xpos, int ypos);
 void mousebutton(int button, int state, int x, int y);
 void mousemovement(int xpos, int ypos);
 
-vector<string>faces = {
-		"Image/skybox/RiverSide/riverside_east.BMP",
-		"Image/skybox/RiverSide/riverside_west.BMP",
-		"Image/skybox/RiverSide/riverside_up.BMP",
-		"Image/skybox/RiverSide/riverside_down.BMP",
-		"Image/skybox/RiverSide/riverside_north.BMP",
-		"Image/skybox/RiverSide/riverside_south.BMP" };
 
 int main(int argc, char* argv[])
 {
 	glutInit(&argc, argv);
 	glWindow = new GLWindow(WIDTH, HEIGHT);
 
-	skybox = new Skybox(faces);
+
 	shadow = new Shadow(WIDTH, HEIGHT);
 
-	shadow_mapping_shader = new Shader("shader_file/Shadow/shadow_mapping.vs", "shader_file/Shadow/shadow_mapping.fs");
+	//shadow_mapping_shader = new Shader("shader_file/Shadow/shadow_mapping.vs", "shader_file/Shadow/shadow_mapping.fs");
+	shadow_mapping_shader = new Shader("shader_file/Shadow/VSM/shadow_mapping.vs", "shader_file/Shadow/VSM/shadow_mapping.fs");
 	shadow_mapping_shader->use();
 	shadow_mapping_shader->SetUniform1i("shadowMap", 16);
 
 	_floor = new Model(planeVertices, sizeof(planeVertices)/sizeof(planeVertices[0]), 
-		shadow_mapping_shader, { "Image/wood.png","Image/white.jpg" });
+		shadow_mapping_shader, { "Resource/Image/wood.png","Resource/Image/white.jpg" });
 	_box = new Model(cube_vertices, sizeof(cube_vertices) / sizeof(cube_vertices[0]),
 		shadow_mapping_shader,
-		{ "Image/container2.png","Image/container2_specular.png"});
+		{ "Resource/Image/container2.png","Resource/Image/container2_specular.png"});
 
 	glutDisplayFunc(display);
 	glutReshapeFunc(reshape);

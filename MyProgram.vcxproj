@@ -137,7 +137,7 @@
     <ClInclude Include="Texture.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main_pbr_IBL.cpp" />
+    <ClCompile Include="main_shadow_mapping.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

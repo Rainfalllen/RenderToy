@@ -23,16 +23,11 @@ float unpackDepth(const in vec4 rgbaDepth)
     float depth = dot(rgbaDepth, bitShift);
     return depth;
 }
-float texture2DCompare(sampler2D depths, vec2 uv, float compare)
-{
-    float depth = unpackDepth(texture2D(depths, uv));
-    // 如果depth < compare，返回0.0，否则返回1.0
-    return 1.0 - step(compare, depth);
-}
+
 float texture2DCompare(sampler2D depths, vec2 uv, float compare, float bias)
 {
     float depth = unpackDepth(texture2D(depths, uv));
-    return 1.0 - step(compare - bias, depth);
+    return step(compare - bias, depth);
 }
 
 
@@ -82,21 +77,32 @@ float calcShadow(sampler2D depths, vec4 FragPosLightSpace, vec3 lightDir, vec3 n
 }
 
 
-float ShadowCaculation(vec4 FragPosLightSpace)
+
+float chebyshevUpperBound()
 {
-    vec3 projectCoords = FragPosLightSpace.xyz / FragPosLightSpace.w;
+    vec3 projectCoords = fs_in.FragPosLightSpace.xyz / fs_in.FragPosLightSpace.w;
     projectCoords = projectCoords * 0.5 + 0.5;
+    float dis = projectCoords.z;
+	// We retrive the two moments previously stored (depth and depth*depth)
+	vec2 moments = texture2D(shadowMap, projectCoords.xy).rg;
 
-    if(projectCoords.z > 1.0)
-    {return 0;}
+	// Surface is fully lit. as the current fragment is before the light occluder
+	if (dis <= moments.x)
+		return 1.0 ;
+	
+	// The fragment is either in shadow or penumbra. We now use chebyshev's upperBound to check
+	// How likely this pixel is to be lit (p_max)
+	float variance = moments.y - (moments.x*moments.x);
+	variance = max(variance,0.00002);
+	
+	float d = dis - moments.x;
+	float p_max = variance / (variance + d*d);
+	
+	return p_max;
+}
 
-    float closestDepth = texture(shadowMap, projectCoords.xy).r;
-    float currentDepth = projectCoords.z;
-    //float bias = 0.005;
-    float bias = max(0.05 * (1.0 - dot(fs_in.Normal, normalize(lightPos - fs_in.FragPos))), 0.005);
-    //float shadow = currentDepth - bias > closestDepth  ? 1.0 : 0.0;
-    
-    // percentage-closer filtering
+float ShadowCaculation()
+{
     float shadow = 0.0;
     vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
 
@@ -104,18 +110,14 @@ float ShadowCaculation(vec4 FragPosLightSpace)
     {
         for(int y = -1; y <= 1; ++y)
         {
-            float pcfDepth = texture(shadowMap, projectCoords.xy + vec2(x, y) * texelSize).r; 
-            shadow += currentDepth - bias > pcfDepth  ? 1.0 : 0.0;        
+            float pcfDepth = chebyshevUpperBound(); 
+            shadow += pcfDepth;        
         }    
     }
     shadow /= 9.0;
 
     return shadow;
 }
-
-
-
-
 
 
 
@@ -144,14 +146,10 @@ void main()
 
     // Shadow
     //float shadow = ShadowCaculation(fs_in.FragPosLightSpace);
-    float shadow = calcShadow(shadowMap, fs_in.FragPosLightSpace, lightDir, normal);
-    vec3 lighting = ambient + ((1.0 - shadow) * (diffuse + specular));
+    float shadow = ShadowCaculation();
+    vec3 lighting = ambient + ((shadow) * (diffuse + specular));
 
-    // // HDR tonemapping
-    // lighting = lighting / (lighting + vec3(1.0));
-    // // gamma correct
-    // lighting = pow(lighting, vec3(1.0/2.2)); 
-
+    //FragColor = vec4(shadow);
     FragColor = vec4(lighting, 1.0f);
 }
 

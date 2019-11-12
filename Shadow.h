@@ -11,9 +11,10 @@ public:
 	{
 		SCR_WIDTH = original_window_width, 
 			SCR_HEIGHT = original_window_height;
-		SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+		SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
 		
-		depth_shader = new Shader("shader_file/Shadow/depth_mapping.vs", "shader_file/Shadow/depth_mapping.fs");
+		//depth_shader = new Shader("shader_file/Shadow/depth_mapping.vs", "shader_file/Shadow/depth_mapping.fs");
+		depth_shader = new Shader("shader_file/Shadow/VSM/depth_mapping.vs", "shader_file/Shadow/VSM/depth_mapping.fs");
 		SetupShadow();
 	}
 
